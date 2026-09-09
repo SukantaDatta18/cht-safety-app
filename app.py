@@ -8,6 +8,32 @@ from pathlib import Path
 
 import streamlit as st
 import folium
+
+# -------------------- DOWNLOAD MODELS FROM GOOGLE DRIVE --------------------
+import os
+import gdown
+
+# REPLACE WITH YOUR ACTUAL FILE IDs
+MODEL_IDS = {
+    'best_binary.pt': '1GEn_pvq4cc4PPnj3JgwRYWJrIHwg1HR5',
+    'best_multi.pt': '1BZEUuDuv3hHEA9GHZtdXknKNyd9RQ_I2'
+}
+
+def download_models():
+    """Download models from Google Drive if they don't exist locally"""
+    os.makedirs('models', exist_ok=True)
+    for filename, file_id in MODEL_IDS.items():
+        path = f'models/{filename}'
+        if not os.path.exists(path):
+            with st.spinner(f"📥 Downloading {filename} (this may take a few minutes)..."):
+                url = f"https://drive.google.com/uc?id={file_id}"
+                gdown.download(url, path, quiet=False)
+                st.success(f"✅ Downloaded {filename}")
+
+# Download models before loading
+download_models()
+# -------------------- END DOWNLOAD CODE --------------------
+
 from folium.plugins import Fullscreen
 from utils.models import (
     load_binary_model, load_multi_model, tokenizer,
