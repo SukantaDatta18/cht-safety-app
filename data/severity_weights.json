@@ -1,0 +1,7 @@
+{
+  "Road accident": 0.85,
+  "Crime": 0.70,
+  "Natural disaster": 0.95,
+  "Waterway": 0.80,
+  "Wildlife attack": 0.75
+}

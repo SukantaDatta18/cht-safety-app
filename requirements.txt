@@ -1,0 +1,10 @@
+streamlit
+torch
+transformers
+pandas
+numpy
+folium
+streamlit-folium
+fuzzywuzzy
+python-Levenshtein
+gdown
