@@ -18,60 +18,45 @@ This map shows **real accident hotspots** from the dataset.
 **Red areas** = High accident frequency | **Yellow** = Medium | **Blue** = Low
 """)
 
-# -------------------- SIMPLE FILE LOADER --------------------
+# -------------------- HELPER: Clean Coordinate Strings --------------------
+def clean_coord(value):
+    """
+    Convert a coordinate string like '91.8969°' or '22.1953°' to float.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        # Remove any non-numeric characters except dot and minus
+        cleaned = re.sub(r'[^0-9.\-]', '', value)
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+    return None
+
+# -------------------- LOAD DATA --------------------
 @st.cache_data
 def load_data():
-    """
-    Simple file loader - looks in the data folder
-    """
-    # Try to load from data folder
     file_path = "data/DatasetPurna.xlsx"
-    
-    # Check if file exists
     if not os.path.exists(file_path):
-        st.error(f"""
-        ❌ **File Not Found!**
-        
-        Please make sure `DatasetPurna.xlsx` is in the `data/` folder.
-        
-        **Current file path tried:** `{file_path}`
-        
-        **How to fix:**
-        1. Check if the file name is exactly `DatasetPurna.xlsx`
-        2. Make sure it's in the `data/` folder
-        3. Check if the file is uploaded to GitHub
-        """)
+        st.error(f"❌ File not found: {file_path}")
         return None, None
-    
     try:
-        df = pd.read_excel(file_path)
+        df = pd.read_excel(file_path, engine='openpyxl')
         st.success(f"✅ Loaded dataset: {file_path}")
     except Exception as e:
         st.error(f"❌ Error loading file: {e}")
         return None, None
-    
-    # Show dataset info
-    st.sidebar.markdown("### 📊 Dataset Info")
-    st.sidebar.write(f"Rows: {len(df)}")
-    st.sidebar.write(f"Columns: {list(df.columns)}")
-    
-    # Check required columns
-    if 'label 1' not in df.columns:
-        st.error(f"❌ Column 'label 1' not found. Available: {', '.join(df.columns)}")
+
+    if 'label 1' not in df.columns or 'Location Annotation' not in df.columns:
+        st.error(f"Required columns missing. Available: {list(df.columns)}")
         return None, None
-    
-    if 'Location Annotation' not in df.columns:
-        st.error(f"❌ Column 'Location Annotation' not found. Available: {', '.join(df.columns)}")
-        return None, None
-    
-    # Filter only accidents
+
     accident_df = df[df['label 1'] == 1].copy()
-    
     if len(accident_df) == 0:
-        st.warning("⚠️ No accident records found (label 1 == 1)")
+        st.warning("⚠️ No accident records found.")
         return None, None
-    
-    # Extract locations
+
     all_locations = []
     for ann in accident_df['Location Annotation'].dropna():
         if isinstance(ann, str):
@@ -79,15 +64,12 @@ def load_data():
                 part = part.strip()
                 if part and len(part) > 1:
                     all_locations.append(part)
-    
+
     if not all_locations:
         st.warning("⚠️ No location annotations found.")
         return None, None
-    
+
     loc_counts = Counter(all_locations)
-    
-    st.sidebar.success(f"✅ {len(accident_df)} accidents, {len(loc_counts)} unique locations")
-    
     return accident_df, loc_counts
 
 # Load data
@@ -97,7 +79,7 @@ with st.spinner("📊 Loading accident data..."):
 if accident_df is None or loc_counts is None:
     st.stop()
 
-# -------------------- LOAD COORDINATES --------------------
+# -------------------- LOAD COORDINATES WITH CLEANING --------------------
 @st.cache_data
 def load_coords():
     coord_path = "data/cht_coordinates.csv"
@@ -106,14 +88,20 @@ def load_coords():
         return None
     try:
         df = pd.read_csv(coord_path)
-        st.sidebar.success(f"✅ Loaded coordinates: {coord_path}")
+        # Clean lat/lon columns
+        df['lat'] = df['lat'].apply(clean_coord)
+        df['lon'] = df['lon'].apply(clean_coord)
+        # Drop rows with invalid coordinates
+        df = df.dropna(subset=['lat', 'lon'])
+        st.sidebar.success(f"✅ Loaded {len(df)} coordinate records")
         return df
     except Exception as e:
         st.error(f"❌ Error loading coordinates: {e}")
         return None
 
 coords = load_coords()
-if coords is None:
+if coords is None or len(coords) == 0:
+    st.error("No valid coordinates found. Please check your CSV file.")
     st.stop()
 
 # -------------------- BUILD HEATMAP DATA --------------------
@@ -161,6 +149,7 @@ m = folium.Map(
 )
 
 if heat_data:
+    # HeatMap expects [[lat, lon, intensity], ...]
     HeatMap(heat_data, radius=25, blur=15, min_opacity=0.3).add_to(m)
 
 # Add markers
