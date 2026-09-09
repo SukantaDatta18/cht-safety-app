@@ -8,3 +8,5 @@ streamlit-folium
 fuzzywuzzy
 python-Levenshtein
 gdown
+branca
+openpyxl
